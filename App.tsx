@@ -13,10 +13,26 @@ import ParkingSlotView from './components/ParkingSlotView';
 import { getParkingInsights } from './services/geminiService';
 import { 
   AreaChart, Area, ResponsiveContainer, YAxis, XAxis, Tooltip, 
-  BarChart, Bar, Cell, PieChart, Pie, CartesianGrid 
+  BarChart, Bar, Cell, PieChart, Pie, CartesianGrid, RadialBarChart, RadialBar, Legend
 } from 'recharts';
 
 type View = 'analytics' | 'insights' | 'grid' | 'vehicles' | 'ledger' | 'settings';
+
+const NavItem: React.FC<{ icon: string; label: string; active: boolean; onClick: () => void }> = ({ 
+  icon, label, active, onClick 
+}) => (
+  <button
+    onClick={onClick}
+    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+      active ? 'bg-black text-white shadow-lg' : 'text-[#6B7280] hover:bg-[#F9FAFB] hover:text-[#111827]'
+    }`}
+  >
+    <div className={`w-6 h-6 rounded-md flex items-center justify-center ${active ? 'bg-white/10' : 'bg-[#F3F4F6]'}`}>
+      <i className={`fas ${icon} text-[10px]`}></i>
+    </div>
+    <span className="text-[11px] font-bold uppercase tracking-wider">{label}</span>
+  </button>
+);
 
 const App: React.FC = () => {
   const STORAGE_KEY_SLOTS = 'smartpark_slots_v3';
@@ -52,13 +68,13 @@ const App: React.FC = () => {
   const [driverName, setDriverName] = useState('');
   const [driverPhone, setDriverPhone] = useState('');
 
-  // Live Timer
+  // Live Timer - Updates global state every second to drive the mathematical clocks
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Sync
+  // Sync with LocalStorage
   useEffect(() => localStorage.setItem(STORAGE_KEY_SLOTS, JSON.stringify(slots)), [slots]);
   useEffect(() => localStorage.setItem(STORAGE_KEY_TRANS, JSON.stringify(transactions)), [transactions]);
 
@@ -89,9 +105,18 @@ const App: React.FC = () => {
     });
   }, [transactions]);
 
-  const occupancyPieData = [
-    { name: 'Occupied', value: stats.occupiedSlots, color: '#000' },
-    { name: 'Available', value: stats.availableSlots, color: '#F3F4F6' }
+  // Redesigned Facility Load Data
+  const facilityLoadGaugeData = [
+    {
+      name: 'Total Capacity',
+      value: slots.length,
+      fill: '#F3F4F6',
+    },
+    {
+      name: 'Occupied',
+      value: stats.occupiedSlots,
+      fill: '#000',
+    }
   ];
 
   const hourlyLoadData = useMemo(() => {
@@ -104,7 +129,7 @@ const App: React.FC = () => {
 
   const activeCars = useMemo(() => slots.filter(s => s.status === SlotStatus.OCCUPIED), [slots]);
 
-  // Stay Duration Distribution (Visualizing how long vehicles stay)
+  // Stay Duration Distribution
   const durationDistributionData = useMemo(() => {
     const categories = { 'Short (<1h)': 0, 'Mid (1-3h)': 0, 'Long (>3h)': 0 };
     activeCars.forEach(s => {
@@ -199,10 +224,10 @@ const App: React.FC = () => {
 
         <nav className="flex-1 px-4 py-2 space-y-1">
           <NavItem icon="fa-chart-column" label="Analytics" active={currentView === 'analytics'} onClick={() => setCurrentView('analytics')} />
-          <NavItem icon="fa-wand-sparkles" label="AI Insights" active={currentView === 'insights'} onClick={() => setCurrentView('insights')} />
+          <NavItem icon="fa-wand-sparkles" label="Smart Insights" active={currentView === 'insights'} onClick={() => setCurrentView('insights')} />
           <NavItem icon="fa-table-cells" label="Live Grid" active={currentView === 'grid'} onClick={() => setCurrentView('grid')} />
-          <NavItem icon="fa-car-side" label="Active Vehicles" active={currentView === 'vehicles'} onClick={() => setCurrentView('vehicles')} />
-          <NavItem icon="fa-scroll" label="Ledger" active={currentView === 'ledger'} onClick={() => setCurrentView('ledger')} />
+          <NavItem icon="fa-car" label="Active Vehicles" active={currentView === 'vehicles'} onClick={() => setCurrentView('vehicles')} />
+          <NavItem icon="fa-file-invoice-dollar" label="Ledger" active={currentView === 'ledger'} onClick={() => setCurrentView('ledger')} />
           <div className="pt-8 pb-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] px-4">Management</div>
           <NavItem icon="fa-sliders" label="Settings" active={currentView === 'settings'} onClick={() => setCurrentView('settings')} />
         </nav>
@@ -222,11 +247,11 @@ const App: React.FC = () => {
         <header className="flex justify-between items-end mb-12">
           <div>
             <h1 className="text-3xl font-black text-[#111827] tracking-tight mb-2 uppercase">
-              {currentView === 'analytics' && 'Graphical Analytics'}
-              {currentView === 'insights' && 'Intelligence Hub'}
+              {currentView === 'analytics' && 'Operational Intelligence'}
+              {currentView === 'insights' && 'Strategic Reports'}
               {currentView === 'grid' && 'Facility Grid'}
               {currentView === 'vehicles' && 'Active Traffic'}
-              {currentView === 'ledger' && 'Registry'}
+              {currentView === 'ledger' && 'Transaction Registry'}
               {currentView === 'settings' && 'System Config'}
             </h1>
             <div className="flex items-center gap-4">
@@ -245,7 +270,7 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {/* Tab Content: Analytics (Visual Only) */}
+        {/* Tab Content: Analytics */}
         {currentView === 'analytics' && (
           <div className="space-y-10 animate-in fade-in duration-700">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -277,22 +302,42 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-white border border-[#E5E7EB] rounded-2xl p-8 shadow-sm">
-                <h3 className="font-bold text-base text-[#111827] mb-8 uppercase tracking-widest text-center">Occupancy Ratio</h3>
-                <div className="h-[300px] w-full relative">
+              {/* Redesigned Facility Load Card */}
+              <div className="bg-white border border-[#E5E7EB] rounded-2xl p-8 shadow-sm flex flex-col">
+                <h3 className="font-bold text-base text-[#111827] mb-2 uppercase tracking-widest text-center">Facility Load</h3>
+                <p className="text-[10px] text-[#6B7280] font-bold uppercase tracking-widest text-center mb-8">Capacity Utilization</p>
+                <div className="h-[240px] w-full relative">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={occupancyPieData} innerRadius={80} outerRadius={100} paddingAngle={5} dataKey="value">
-                        {occupancyPieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
+                    <RadialBarChart 
+                      innerRadius="60%" 
+                      outerRadius="100%" 
+                      data={facilityLoadGaugeData} 
+                      startAngle={180} 
+                      endAngle={0}
+                    >
+                      <RadialBar
+                        background
+                        dataKey="value"
+                        cornerRadius={15}
+                      />
+                    </RadialBarChart>
                   </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-4xl font-black text-[#111827]">{stats.occupiedSlots}</span>
-                    <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-widest">Parked</span>
+                  <div className="absolute inset-0 flex flex-col items-center justify-end pb-8 pointer-events-none">
+                    <span className="text-5xl font-black text-[#111827] tabular-nums tracking-tighter">
+                      {Math.round((stats.occupiedSlots / slots.length) * 100)}%
+                    </span>
+                    <span className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mt-1">Live Occupancy</span>
                   </div>
+                </div>
+                <div className="mt-auto pt-6 border-t border-[#F3F4F6] grid grid-cols-2 gap-4">
+                   <div className="text-center">
+                     <p className="text-[9px] font-black text-[#9CA3AF] uppercase tracking-widest">Reserved</p>
+                     <p className="text-sm font-black text-[#111827]">{stats.occupiedSlots}</p>
+                   </div>
+                   <div className="text-center border-l border-[#F3F4F6]">
+                     <p className="text-[9px] font-black text-[#9CA3AF] uppercase tracking-widest">Vacant</p>
+                     <p className="text-sm font-black text-[#111827]">{stats.availableSlots}</p>
+                   </div>
                 </div>
               </div>
             </div>
@@ -329,43 +374,86 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Live Occupants List at Bottom of Analytics */}
+            {/* Live Occupants List with Mathematical Timer and Money Tracker */}
             <div className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm">
               <div className="p-8 border-b border-[#F3F4F6] flex justify-between items-center bg-[#FBFBFA]">
-                <h3 className="font-bold text-base text-[#111827] uppercase tracking-widest">Current Facility Occupants</h3>
-                <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-widest">{activeCars.length} ACTIVE SESSIONS</span>
+                <div>
+                  <h3 className="font-bold text-base text-[#111827] uppercase tracking-widest">Live Billing Engine</h3>
+                  <p className="text-[10px] text-[#6B7280] font-bold uppercase mt-1">Real-time surveillance of onsite vehicles</p>
+                </div>
+                <div className="flex gap-4">
+                  <div className="bg-black/5 px-4 py-2 rounded-lg border border-black/5 flex items-center gap-3">
+                    <i className="fas fa-clock text-black/40 text-xs"></i>
+                    <span className="text-xs font-black text-black tabular-nums uppercase">{currentTime.toLocaleTimeString()}</span>
+                  </div>
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead className="bg-[#F9FAFB] text-[9px] font-black text-[#6B7280] uppercase tracking-[0.2em] border-b border-[#F3F4F6]">
                     <tr>
-                      <th className="px-8 py-4">Driver / Occupant</th>
-                      <th className="px-8 py-4">Vehicle Plate</th>
-                      <th className="px-8 py-4">Bay #</th>
-                      <th className="px-8 py-4">Current Stay</th>
-                      <th className="px-8 py-4 text-right">Est. Fee</th>
+                      <th className="px-8 py-5">Personnel & Plate</th>
+                      <th className="px-8 py-5">Location</th>
+                      <th className="px-8 py-5">Entry Time</th>
+                      <th className="px-8 py-5">Live Duration</th>
+                      <th className="px-8 py-5 text-right">Mathematical Fee</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#F3F4F6] text-sm font-medium">
                     {activeCars.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-8 py-12 text-center text-[#9CA3AF] font-bold uppercase tracking-widest">No active vehicles onsite.</td>
+                        <td colSpan={5} className="px-8 py-24 text-center">
+                          <i className="fas fa-car-side text-[#D1D5DB] text-4xl mb-4 block"></i>
+                          <p className="text-[#9CA3AF] font-bold uppercase tracking-widest text-[10px]">No active billing sessions</p>
+                        </td>
                       </tr>
                     ) : (
-                      activeCars.map(s => (
-                        <tr key={s.id} className="hover:bg-[#FBFBFA] transition-colors">
-                          <td className="px-8 py-5">
-                            <div className="flex flex-col">
-                              <span className="text-[#111827] font-black">{s.currentCar?.driverName}</span>
-                              <span className="text-[10px] text-[#9CA3AF] font-bold uppercase">{s.currentCar?.driverPhone}</span>
-                            </div>
-                          </td>
-                          <td className="px-8 py-5 font-black text-[#111827] tracking-tight">{s.currentCar?.plateNumber}</td>
-                          <td className="px-8 py-5"><span className="bg-[#F3F4F6] px-2 py-1 rounded text-[10px] font-bold border border-[#E5E7EB]">{s.number}</span></td>
-                          <td className="px-8 py-5 text-[#6B7280] text-xs font-bold tabular-nums">{calculateDurationStr(s.currentCar!.entryTime)}</td>
-                          <td className="px-8 py-5 text-right font-black text-[#111827] tabular-nums">{calculateLiveFee(s.currentCar!.entryTime).toLocaleString()} RWF</td>
-                        </tr>
-                      ))
+                      activeCars.map(s => {
+                        const currentFee = calculateLiveFee(s.currentCar!.entryTime);
+                        return (
+                          <tr key={s.id} className="hover:bg-[#FBFBFA] transition-colors group">
+                            <td className="px-8 py-6">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center text-white text-xs font-black">
+                                  {s.currentCar?.plateNumber.slice(-3)}
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-[#111827] font-black">{s.currentCar?.plateNumber}</span>
+                                  <span className="text-[10px] text-[#6B7280] font-bold uppercase">{s.currentCar?.driverName}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-8 py-6">
+                              <span className="bg-[#F3F4F6] px-3 py-1.5 rounded-lg text-[10px] font-black border border-[#E5E7EB] text-black">
+                                BAY {s.number}
+                              </span>
+                            </td>
+                            <td className="px-8 py-6 text-xs text-[#6B7280] font-mono">
+                              {new Date(s.currentCar!.entryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </td>
+                            <td className="px-8 py-6">
+                              <div className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+                                <span className="text-xs font-black tabular-nums text-blue-600">
+                                  {calculateDurationStr(s.currentCar!.entryTime)}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-8 py-6 text-right">
+                              <div className="flex flex-col items-end">
+                                <span className="text-lg font-black text-[#111827] tabular-nums tracking-tighter transition-all">
+                                  {currentFee.toLocaleString()}
+                                  <span className="text-[10px] ml-1 text-[#9CA3AF]">RWF</span>
+                                </span>
+                                <div className="flex items-center gap-1 mt-1">
+                                  <span className="text-[8px] font-black text-[#10B981] uppercase tracking-widest">Active Billing</span>
+                                  <i className="fas fa-arrow-trend-up text-[#10B981] text-[8px]"></i>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -374,7 +462,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Tab Content: AI Insights */}
+        {/* Tab Content: Strategic Insights */}
         {currentView === 'insights' && (
           <div className="animate-in fade-in duration-700 max-w-3xl space-y-8">
             <div className="bg-black text-white rounded-3xl p-12 shadow-2xl relative overflow-hidden">
@@ -382,7 +470,7 @@ const App: React.FC = () => {
                  <i className="fas fa-wand-magic-sparkles text-9xl"></i>
                </div>
                <div className="relative z-10">
-                 <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-6">AI Operations Summary</h4>
+                 <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-6">Strategic Intelligence Report</h4>
                  <div className="text-2xl font-medium leading-relaxed italic opacity-90 border-l-4 border-indigo-500 pl-8 mb-12">
                    "{aiInsight}"
                  </div>
@@ -392,22 +480,9 @@ const App: React.FC = () => {
                   className="px-10 py-5 bg-white text-black font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-indigo-50 active:scale-95 transition-all flex items-center gap-4 disabled:opacity-50"
                  >
                   {isAiLoading ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-bolt-lightning"></i>}
-                  Generate Operations Report
+                  Generate New Audit
                  </button>
                </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white border border-[#E5E7EB] rounded-2xl p-8 shadow-sm">
-                <i className="fas fa-lightbulb text-amber-400 text-xl mb-4"></i>
-                <h5 className="font-bold text-sm text-[#111827] mb-2">Dynamic Pricing Suggestion</h5>
-                <p className="text-xs text-[#6B7280] leading-relaxed">Consider a 10% peak-hour surcharge during 12:00 PM - 2:00 PM based on current occupancy patterns.</p>
-              </div>
-              <div className="bg-white border border-[#E5E7EB] rounded-2xl p-8 shadow-sm">
-                <i className="fas fa-shield-halved text-emerald-500 text-xl mb-4"></i>
-                <h5 className="font-bold text-sm text-[#111827] mb-2">Security Audit</h5>
-                <p className="text-xs text-[#6B7280] leading-relaxed">System logs indicate zero unauthorized exits. Slot A04 shows high turnaround frequency.</p>
-              </div>
             </div>
           </div>
         )}
@@ -591,7 +666,7 @@ const App: React.FC = () => {
               <div className="p-6 bg-slate-50 border border-[#E5E7EB] rounded-xl flex items-start gap-4">
                  <i className="fas fa-circle-info text-slate-400 mt-1"></i>
                  <p className="text-xs text-[#4B5563] leading-relaxed font-medium">
-                   Tariff adjustments are globally managed via the regional central hub. Individual facilities cannot modify billing rates without central authorization.
+                   Tariff adjustments are globally managed via the regional central hub.
                  </p>
               </div>
               <div className="pt-10 border-t border-[#F3F4F6] flex items-center justify-between">
@@ -600,7 +675,7 @@ const App: React.FC = () => {
                   <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-wider mt-1">Authorized personnel only</p>
                 </div>
                 <button 
-                   onClick={() => { if(confirm("Complete System Wipe: All history and active slots will be purged. This is IRREVERSIBLE. Proceed?")) { localStorage.clear(); window.location.reload(); }}} 
+                   onClick={() => { if(confirm("Purge facility data?")) { localStorage.clear(); window.location.reload(); }}} 
                    className="px-6 py-3 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-red-100 transition-all border border-red-100 shadow-sm"
                 >
                   Factory Reset
@@ -693,19 +768,5 @@ const App: React.FC = () => {
     </div>
   );
 };
-
-const NavItem: React.FC<{ icon: string, label: string, active: boolean, onClick: () => void }> = ({ icon, label, active, onClick }) => (
-  <button 
-    onClick={onClick}
-    className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl text-sm font-bold transition-all group
-      ${active 
-        ? 'bg-[#F3F4F6] text-[#111827]' 
-        : 'text-[#6B7280] hover:text-[#111827] hover:bg-[#F9FAFB]'}
-    `}
-  >
-    <i className={`fas ${icon} text-[16px] w-6 transition-transform group-hover:scale-110`}></i>
-    {label}
-  </button>
-);
 
 export default App;

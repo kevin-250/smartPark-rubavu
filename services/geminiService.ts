@@ -1,7 +1,8 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Initialize the Google GenAI client using the API key from environment variables.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const getParkingInsights = async (transactions: any[], stats: any) => {
   try {
@@ -18,6 +19,7 @@ export const getParkingInsights = async (transactions: any[], stats: any) => {
         temperature: 0.7,
       }
     });
+    // The response.text property returns the extracted string output directly.
     return response.text;
   } catch (error) {
     console.error("Gemini Insight Error:", error);
