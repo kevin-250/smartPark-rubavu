@@ -5,30 +5,36 @@ export enum SlotStatus {
   MAINTENANCE = 'MAINTENANCE'
 }
 
+// Entity: ParkingSlot
 export interface ParkingSlot {
-  id: string;
-  number: string;
+  id: string; // Primary Key
+  number: string; // SlotNumber
   status: SlotStatus;
-  currentCar?: CarEntry;
+  currentCar?: CarEntry; // Relationship to Car (0..1)
 }
 
+// Entity: Car
 export interface CarEntry {
-  id: string;
-  plateNumber: string;
-  driverName: string;
-  driverPhone: string;
-  entryTime: string; // ISO String
-  slotId: string;
+  id: string; // Primary Key
+  plateNumber: string; // PlateNumber
+  driverName: string; // DriverName
+  driverPhone: string; // PhoneNumber
+  entryTime: string; 
+  slotId: string; // Foreign Key to ParkingSlot
 }
 
+// Entity: ParkingRecord & Payment (Combined for practical React state, but logically separate)
 export interface Transaction {
-  id: string;
-  plateNumber: string;
+  id: string; // Primary Key
+  // ParkingRecord Attributes
+  plateNumber: string; 
   driverName: string;
   entryTime: string;
   exitTime: string;
-  durationMinutes: number;
-  totalFee: number;
+  durationMinutes: number; // Duration
+  // Payment Attributes
+  totalFee: number; // AmountPaid
+  paymentDate: string; // PaymentDate
   slotNumber: string;
 }
 
